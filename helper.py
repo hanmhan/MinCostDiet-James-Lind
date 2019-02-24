@@ -41,7 +41,7 @@ class HelperFucClass:
 		tl = {}
 		col = {}
 		for i in x:
-			temp1 = alpha1.search(i,c) 
+			temp1 = nd_m.search(i,c) 
 			for q in temp1:
 				
 				data = requests.get(url , params = (('api_key', HelperFucClass.mykey),('ndbno',q['ndbno']))).json()['foods'][0]['food']['nutrients']
