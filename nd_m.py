@@ -22,7 +22,7 @@ from helper import HelperFucClass as hfc
 
 
 def nutrition_dataframe_beta1(foods = ['milk','broccoli'],c = 'safeway',key = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2', debug = 0, mode = 'ui'):
-
+	hfc.mode = mode
 
 	if debug == 1:
 		d1 = ['45109162', '45361064']
@@ -32,10 +32,10 @@ def nutrition_dataframe_beta1(foods = ['milk','broccoli'],c = 'safeway',key = 'J
 
 
 	if mode == 'ui':
-		if len(foods) > 1:
 
-			df = pd.DataFrame(hfc.ndhelper1( foods, c),columns = ['Food Name','Nutrients', 'Value']).set_index(['Food Name' ,'Nutrients' ])
-			return df
+	
+		df = pd.DataFrame(hfc.ndhelper1( foods, c),columns = ['Food Name','Nutrients', 'Value']).set_index(['Food Name' ,'Nutrients' ])
+		return df
 
 
 	if mode == 'test':
@@ -56,5 +56,5 @@ def open_nd():
 	pass
 
 
-x = nutrition_dataframe_beta1( ['milk','broccoli'])
+x = nutrition_dataframe_beta1( foods = ['frozen broccoli'])
 

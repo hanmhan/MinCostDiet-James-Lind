@@ -50,31 +50,21 @@ class HelperFucClass:
 
 
 			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + data_recursive_helper(foods_nd_lst[1:])
-		"""def average_duplication(x, nl = None):
-			if nl == None:
-				nl = [i['name'] for i in x[0]]
-				x = [ [ {j['name']:j['value']} for j in i] for i in x]
-			if len(nl) == 1 and len(x) > 1:
-				return {nl[0]:sum([i[nl[0]] for i in x])/len(x)}
-			if len(x) == 1:
-				return x
+		"""def average_duplication(x):
 
-			x[0][0]['name'] = 
-			y={}
-			y[nl[0]] = sum([i[nl[0]] for i in x])/len(x)
+			pd.Series().groupby().agg(lambda y : sum(y)/len(y))
+			return  """
 
-			return y.update(average_duplication(x,nl[1:]) )"""
-
-		#HelperFucClass.ndhelper1.mudamuda = average_duplication
-		
 
 		if HelperFucClass.mode == 'ui':
 
 			if len(foods) == 0:
+
 				return []
 
 
 			data1 = classificationforfoods.search_user(foods[0],c)
+
 			data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.mykey),)    ).json()
 
 			return data_recursive_helper(data1['foods']) + HelperFucClass.ndhelper1(foods[1:],c)
@@ -101,31 +91,34 @@ class classificationforfoods:
 
 		data = requests.get(url , params = (('q', food),('api_key', HelperFucClass.profkey),('max',maxx)))
 
-		tempx =  np.array([i for i in data.json()['list']['item'] if c.lower() in i['manu'].lower()])
+		tempx =  np.array([i for i in data.json()['list']['item']])
 
 
 		if len(tempx) != 1:
 
 
-			temp2 = [   (' '.join(i['name'].split()[:[k for j,k in zip(i['name'].split(), range(len(i['name'].split()))) if 'UPC' in j][0]])) for i in tempx]
-			pprint.pprint(temp2)
+			#temp2 = [   (' '.join(i['name'].split()[:[k for j,k in zip(i['name'].split(), range(len(i['name'].split()))) if 'UPC' in j][0]])) for i in tempx]
+			pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(tempx,range(len(tempx)))])
 			print ('========================================================================')
 			print ('please input the products you want following the next line ')
 			print ('For instance:')
-			print ('1. x1')
-			print ('2. x1/x2/x3')
+			#print ('1. x1')
+			#print ('2. x1/x2/x3')
 			print ('3. index(0,1,2,3)')
 			print ('4. esc')
 			_input = input('>>>>> ')
-			if '/' in _input:
+
+			if 'index' in _input:
+				temp3 = [int(i) for i in _input.replace('index',"").replace('(',"").replace(')','').split(',')]
+	
+				return [i for i,j in zip(tempx,range(len(tempx))) if j in temp3 ]
+
+
+			elif '/' in _input:
 				temp3 = np.array([ HelperFucClass._helper1(i) for i in  _input.replace("'", "").replace('"', "").split("/")])
 	
 
 				return tempx[[True if HelperFucClass._helper1(i) in temp3 else False for i in temp2]]
-			elif 'index' in _input:
-				temp3 = [int(i) for i in _input.replace('index',"").replace('(',"").replace(')','').split(',')]
-	
-				return [i for i,j in zip(tempx,range(len(tempx))) if j in temp3 ]
 			elif 'esc' == _input:
 				return None
 			else:
@@ -171,6 +164,8 @@ class classificationforfoods:
 			print (33333333)
 			return temp_list2 if temp_list2 else temp_list
 
+
+		print ('Errorrrrrrrrrrrrrrrrrrrrrrrrr')
 		"""else:
 		
 			if not cache_ndb._boolean_exist('ndbno',food):
@@ -215,4 +210,4 @@ class cache_ndb:
 
 #print (classificationforfoods.search_insider('broccoli',c='safeway'))
 
-print (HelperFucClass.ndhelper1(['broccoli'],c='safeway'))
+#print (HelperFucClass.ndhelper1(['broccoli'],c='safeway'))
