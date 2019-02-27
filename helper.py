@@ -50,7 +50,7 @@ class HelperFucClass:
 
 
 			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + data_recursive_helper(foods_nd_lst[1:])
-		"""def average_duplication(x):
+		"""def average of duplicates(x):
 
 			pd.Series().groupby().agg(lambda y : sum(y)/len(y))
 			return  """
