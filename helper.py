@@ -12,7 +12,7 @@ class HelperFucClass:
 	mykey = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2'
 	key = mykey
 	nd_url = 'https://api.nal.usda.gov/ndb/V2/reports?format=json&type=b'
-	mode = 'test'
+	mode = 'ui'
 
 
 	def _helper1(x):
@@ -67,10 +67,6 @@ class HelperFucClass:
 
 		#HelperFucClass.ndhelper1.mudamuda = average_duplication
 		
-		tl = {}
-		col = {}
-
-	
 
 		if HelperFucClass.mode == 'ui':
 
@@ -119,6 +115,7 @@ class classificationforfoods:
 			print ('1. x1')
 			print ('2. x1/x2/x3')
 			print ('3. index(0,1,2,3)')
+			print ('4. esc')
 			_input = input('>>>>> ')
 			if '/' in _input:
 				temp3 = np.array([ HelperFucClass._helper1(i) for i in  _input.replace("'", "").replace('"', "").split("/")])
@@ -129,7 +126,8 @@ class classificationforfoods:
 				temp3 = [int(i) for i in _input.replace('index',"").replace('(',"").replace(')','').split(',')]
 	
 				return [i for i,j in zip(tempx,range(len(tempx))) if j in temp3 ]
-				 
+			elif 'esc' == _input:
+				return None
 			else:
 				return [ i for i in tempx if _input.lower() in i['name'].lower()][0]
 
@@ -215,6 +213,6 @@ class cache_ndb:
 		return food.lower() in cache_ndb._caches[type] if index == None else food.lower() in cache_ndb._caches[type][0] or food.lower() in cache_ndb._caches[type][1]
 
 
-print (classificationforfoods.search_insider('broccoli',c='safeway'))
+#print (classificationforfoods.search_insider('broccoli',c='safeway'))
 
 print (HelperFucClass.ndhelper1(['broccoli'],c='safeway'))

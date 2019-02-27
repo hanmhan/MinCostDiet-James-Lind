@@ -21,7 +21,7 @@ from helper import HelperFucClass as hfc
 
 
 
-def nutrition_dataframe_beta1(foods = ['demo1','demo2'],c = 'safeway',key = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2', debug = 0, mode = 'ui'):
+def nutrition_dataframe_beta1(foods = ['milk','broccoli'],c = 'safeway',key = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2', debug = 0, mode = 'ui'):
 
 
 	if debug == 1:
@@ -33,15 +33,16 @@ def nutrition_dataframe_beta1(foods = ['demo1','demo2'],c = 'safeway',key = 'JPk
 
 	if mode == 'ui':
 		if len(foods) > 1:
-			df = pd.DataFrame(hfc.ndhelper1( foods, c), index = foods)
+
+			df = pd.DataFrame(hfc.ndhelper1( foods, c),columns = ['Food Name','Nutrients', 'Value']).set_index(['Food Name' ,'Nutrients' ])
 			return df
 
 
 	if mode == 'test':
-		return hfc.ndhelper1(foods,c, mode =mode)
+		return hfc.ndhelper1(foods,c)
 
 	if mode == 'test2':
-		return hfc.ndhelper1(foods,c, mode =mode)
+		return hfc.ndhelper1(foods,c)
 
 
 def merge_nd():
@@ -55,8 +56,5 @@ def open_nd():
 	pass
 
 
-x = nutrition_dataframe_beta1( ['milk','broccoli'],mode='test')
+x = nutrition_dataframe_beta1( ['milk','broccoli'])
 
-
-
-print (x)
