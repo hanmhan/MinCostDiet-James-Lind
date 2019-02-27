@@ -58,5 +58,5 @@ def open_nd():
 #x = nutrition_dataframe_beta1( foods = ['frozen broccoli'])
 y = test()
 yy = y['Food'].iloc
-ora = nutrition_dataframe_beta1
-asdf = ora(foods= list(yy[5:7]),mode='test')
+#ora = nutrition_dataframe_beta1
+#asdf = ora(foods= list(yy[5:7]),mode='test')

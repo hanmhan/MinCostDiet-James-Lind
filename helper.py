@@ -45,8 +45,9 @@ class HelperFucClass:
 	def ndhelper1(foods,c='all'):
 		
 		def data_recursive_helper(foods_nd_lst):
-			if foods_nd_lst:
+			if len(foods_nd_lst) == 0:
 				return []
+
 
 			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + data_recursive_helper(foods_nd_lst[1:])
 		"""def average of duplicates(x,a):
@@ -54,14 +55,19 @@ class HelperFucClass:
 			pd.Series(x).groupby(a).agg(lambda y : sum(y)/len(y))
 			return  """
 
-		if foods:
+		if len(foods) == 0:
 
 			return []
 
 		try:
+			
 			data1 = classificationforfoods.search_user(foods[0],c) if HelperFucClass.mode == 'ui' else classificationforfoods.search_insider(foods[0]) if HelperFucClass.mode == 'test' else None
+
 			data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
-		
+
+			if HelperFucClass.mode == 'test' and len(data1) > 1:
+				return HelperFucClass.ndhelper1(foods[1:],c)
+				
 		except:
 			HelperFucClass._ora += [foods[0]]
 			return HelperFucClass.ndhelper1(foods[1:],c)
@@ -82,8 +88,8 @@ class classificationforfoods:
 		print(fil_re)
 		data = requests.get(url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',maxx)))
 
-		tempx =  np.array([i for i in data.json()['list']['item'] if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word  else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
-
+		tempx =  np.array([i for i in data.json()['list']['item'] if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
+	
 		#tempx =  np.array([i for i in data.json()['list']['item']])
 
 
@@ -142,11 +148,14 @@ class classificationforfoods:
 			data1 = cache_ndb._caches['ndbno'][0][temp_raw.lower()]
 			data2 = cache_ndb._caches['ndbno'][1][temp_raw.lower()]
 	
-
-		#temp_list = [i if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())  else None if not len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split()) + 2 or not 'UPC' in i['name'] else i for i in data1]
-		#temp_list = [i for i in temp_list if i != None] 
-		temp_list = None
-		temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
+		if HelperFucClass._exact_word:
+			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
+			temp_list = None
+		else:
+			temp_list = [i if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())  else None if not len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split()) + 2 or not 'UPC' in i['name'] else i for i in data1]
+			temp_list = [i for i in temp_list if i != None] 
+			#temp_list = None
+			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
 
 		
 
