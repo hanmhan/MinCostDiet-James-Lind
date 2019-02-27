@@ -32,7 +32,8 @@ def nutrition_dataframe_beta1(foods = ['milk','broccoli'],c = 'safeway',exact_wo
 	hfc.mode = mode
 	hfc._exact_word = exact_word
 	df = pd.DataFrame(hfc.ndhelper1( foods, c),columns = ['Food Name','Nutrients', 'Value']).set_index(['Food Name' ,'Nutrients' ])
-	print ( "["+", ".join(hfc._ora) + ']  do/does not exist'  if len(hfc._ora) != 0 else '')
+	print (hfc._ora)
+	print ( "[" + ", ".join(hfc._ora) + ']  do/does not exist'  if len(hfc._ora) != 0 else '')
 	hfc._ora = []
 	return df
 	"""except:

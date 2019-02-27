@@ -65,9 +65,6 @@ class HelperFucClass:
 
 			data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
 
-			if HelperFucClass.mode == 'test' and len(data1) > 1:
-				return HelperFucClass.ndhelper1(foods[1:],c)
-				
 		except:
 			HelperFucClass._ora += [foods[0]]
 			return HelperFucClass.ndhelper1(foods[1:],c)
@@ -85,7 +82,7 @@ class classificationforfoods:
 		punct_re = r'[^\w ]|  +'
 		food = re.sub(punct_re," ",food.lower())
 		fil_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
-		print(fil_re)
+
 		data = requests.get(url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',maxx)))
 
 		tempx =  np.array([i for i in data.json()['list']['item'] if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
@@ -151,16 +148,19 @@ class classificationforfoods:
 		if HelperFucClass._exact_word:
 			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
 			temp_list = None
+
+	
 		else:
 			temp_list = [i if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())  else None if not len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split()) + 2 or not 'UPC' in i['name'] else i for i in data1]
 			temp_list = [i for i in temp_list if i != None] 
+
 			#temp_list = None
 			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
 
 		
 
 		if temp_list or temp_list2:
-
+	
 			return temp_list2 if temp_list2 else temp_list
 
 
