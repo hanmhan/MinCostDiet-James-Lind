@@ -6,93 +6,144 @@ import requests
 import re
 import pprint
 import os
+
+
+GodMode = False
+ind = None
+
+
+mode = 'ui'
+
 class HelperFucClass:
 
 	profkey = 'inIyO1begWSRqsYtxS7m6p09PSyq7Qiw7fxzV2qN'
 	mykey = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2'
-	api_key = profkey
+	mykey2 = 'qKtE5wujwySVB2sCbwQEpNkCt3r3i2BrIU23F6TL'
+	api_key = mykey2
+
+
 	nd_url = 'https://api.nal.usda.gov/ndb/V2/reports?format=json&type=b'
-	mode = 'ui'
-	_ora = []
+
+	oraora = []
 	_exact_word = 0
 	def _helper1(x):
 		return x.replace("'", "").replace('"', "").replace(",", "").replace("&", "").replace(" ", "").replace("-","").lower()
 
-	def debug1(x):
-		tl = {}
-		col = {}
-
-		for i in x:
-
-			with open(i,'r') as file:
-				data = json.load(file)
-
-			tl[i] = {}
-			for j in data:
-				if j['name'] not in col:
-					col[j['name']] = 0
-				tl[i][j['name']] = j['value']
-
-		for i in col:
-
-
-			col[i] = [tl[j][i] if i in tl[j] else None for j in tl]
-
-
-		return col
-
-
-	def ndhelper1(foods,c='all'):
+	def getting_nutrition_data(foods,c=None,**kwargs):
 		
-		def data_recursive_helper(foods_nd_lst):
+		def recursive_helper(foods_nd_lst):
+
 			if len(foods_nd_lst) == 0:
 				return []
 
 
-			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + data_recursive_helper(foods_nd_lst[1:])
+			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
 		"""def average of duplicates(x,a):
 
 			pd.Series(x).groupby(a).agg(lambda y : sum(y)/len(y))
 			return  """
 
+
+
+
 		if len(foods) == 0:
 
 			return []
 
+
+
 		try:
-			
-			data1 = classificationforfoods.search_user(foods[0],c) if HelperFucClass.mode == 'ui' else classificationforfoods.search_insider(foods[0]) if HelperFucClass.mode == 'test' else None
+			data1 = search.FoodNDB()(foods[0],c,**kwargs )
 
-			data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
+			if not cache_ndb._boolean_exist('nd',foods[0]):
 
-		except:
-			HelperFucClass._ora += [foods[0]]
-			return HelperFucClass.ndhelper1(foods[1:],c)
-		 
+				print (11)
+				data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
+
+				cache_ndb._update('nd', {foods[0]: data1})
+
+			else:
+
+				data1 = cache_ndb._caches['nd'][foods[0]]
+
+					
 
 
-		return data_recursive_helper(data1['foods']) + HelperFucClass.ndhelper1(foods[1:],c)
+
+			if kwargs:
+				
+				kwargs = { i:kwargs[i][1:]  for i in kwargs}
+
+			return recursive_helper(data1['foods']) + HelperFucClass.getting_nutrition_data(foods[1:],c , **kwargs)
+
+
+		except KeyError:
+
+			HelperFucClass.oraora += [foods[0]]
+			return HelperFucClass.getting_nutrition_data(foods[1:],c ,**kwargs)
+
+
+	def getting_nutrition_data_ndbno(foods,ndbno=[]):
+		def recursive_helper(foods_nd_lst):
+
+			if len(foods_nd_lst) == 0:
+				return []
+
+
+			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
+		if len(foods) == 0:
+
+			return []
+		data1 = requests.get(HelperFucClass.nd_url , params = (('api_key', HelperFucClass.api_key), ('ndbno',ndbno[0]))    ).json()
+		return recursive_helper(data1['foods']) + HelperFucClass.getting_nutrition_data_ndbno(foods[1:],ndbno[1:])
+class search:
+	nd_url = 'https://api.nal.usda.gov/ndb/search?format=json'
+	maxx = 1500
+
+	def __init__(self):
+		pass
+
+
+	def FoodNDB():
+
+		if mode == 'ui':
+
+			return search.search_user
+
+		elif mode == 'test':
+
+			return search.search_insider
+
+		elif mode == 'test2':
+
+			return search.search_test
 
 
 
-class classificationforfoods:
+	def search_user(food, c = 'safeway'):
 
-	def search_user(food, c = 'safeway',maxx = 1500, url = 'https://api.nal.usda.gov/ndb/search?format=json'):
 		qwertyui = "UPC [0-9]+"
 		punct_re = r'[^\w ]|  +'
 		food = re.sub(punct_re," ",food.lower())
 		fil_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
 
-		data = requests.get(url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',maxx)))
+		data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',search.maxx)))
 
 		tempx =  np.array([i for i in data.json()['list']['item'] if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
 	
-		#tempx =  np.array([i for i in data.json()['list']['item']])
+		#print (len(tempx))
+		#print (tempx)
+		if GodMode == True:
+			print (ind[0])
+			qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == ind[0] ]
+
+			ind.remove(ind[0])
 
 
+			return qwe
 
 		#temp2 = [   (' '.join(i['name'].split()[:[k for j,k in zip(i['name'].split(), range(len(i['name'].split()))) if 'UPC' in j][0]])) for i in tempx]
-		pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(tempx,range(len(tempx)))][:20])
+		pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(tempx,range(len(tempx)))][:300])
 		print ('========================================================================')
 		print ('please input the products you want following the next line ')
 		print ('For instance:')
@@ -120,7 +171,7 @@ class classificationforfoods:
 
 
 
-	def search_insider(food, c = 'safeway',maxx = 1500, url = 'https://api.nal.usda.gov/ndb/search?format=json'):
+	def search_insider(food, c = 'safeway'):
 
 
 		punct_re = r'[^\w ]'
@@ -132,8 +183,8 @@ class classificationforfoods:
 
 			
 
-			data2 = requests.get(url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',maxx), ('ds','Standard Reference'))).json()['list']['item']
-			data1 = requests.get(url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',maxx))).json()['list']['item']
+			data2 = requests.get(search.nd_url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',search.maxx), ('ds','Standard Reference'))).json()['list']['item']
+			data1 = requests.get(search.nd_url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',search.maxx))).json()['list']['item']
 
 			cache_ndb._update('ndbno', {temp_raw.lower(): data1}, index = 0)
 			cache_ndb._update('ndbno', {temp_raw.lower(): data2}, index = 1)
@@ -169,7 +220,7 @@ class classificationforfoods:
 		
 			if not cache_ndb._boolean_exist('ndbno',food):
 
-				data = requests.get(url , params = (('q', food),('api_key', HelperFucClass.mykey),('max',maxx))).json()['list']['item']
+				data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.mykey),('max',search.maxx))).json()['list']['item']
 				cache_ndb._update('ndbno', {food.lower(): [i for i in data]})
 
 			else:
@@ -177,6 +228,40 @@ class classificationforfoods:
 				data = cache_ndb._caches['ndbno'][food]
 
 			return [1,2]"""
+
+
+	def search_test(food,c = 'safeway',lst_index=[]):
+
+		qwertyui = "UPC [0-9]+"
+		punct_re = r'[^\w ]|  +'
+		food = re.sub(punct_re," ",food.lower())
+		fil_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
+
+		if not cache_ndb._boolean_exist('ndbno',food, index = True):
+
+
+			
+
+			data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',search.maxx))).json()['list']['item']
+
+			cache_ndb._update('ndbno', {food: data}, index = 0)
+
+
+
+
+		else:
+
+			data = cache_ndb._caches['ndbno'][0][food]
+
+
+
+		tempx =  np.array([i for i in data if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
+
+		qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == lst_index[0] ]
+		
+		return qwe
+
+
 
 class cache_ndb:
 
@@ -187,8 +272,7 @@ class cache_ndb:
 
 	else:
 		_caches = {'ndbno':[{},{}], 'nd':{}}
-		print (_caches['ndbno'][0] )
-		print (_caches['ndbno'][1] )
+
 		with open('caches.json','w') as file:
 			json.dump(_caches,file)
 
@@ -203,10 +287,11 @@ class cache_ndb:
 
 
 	def _boolean_exist(type,food, index = None):
-		
-		return food.lower() in cache_ndb._caches[type] if index == None else food.lower() in cache_ndb._caches[type][0] or food.lower() in cache_ndb._caches[type][1]
+
+		return food in cache_ndb._caches[type] if index == None else food.lower() in cache_ndb._caches[type][0] or food.lower() in cache_ndb._caches[type][1]
 
 
-#print (classificationforfoods.search_insider('broccoli',c='safeway'))
 
-#print (HelperFucClass.ndhelper1(['broccoli'],c='safeway'))
+
+
+
