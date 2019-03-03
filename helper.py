@@ -37,7 +37,7 @@ class HelperFucClass:
 				return []
 
 
-			return [ [foods_nd_lst[0]['food']['desc']['name'],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
+			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
 		"""def average of duplicates(x,a):
 
 			pd.Series(x).groupby(a).agg(lambda y : sum(y)/len(y))
@@ -57,7 +57,7 @@ class HelperFucClass:
 
 			if not cache_ndb._boolean_exist('nd',foods[0]):
 
-				print (11)
+
 				data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
 
 				cache_ndb._update('nd', {foods[0]: data1})
