@@ -43,12 +43,12 @@ class search:
 
 	def search_user(self, food):
 
-		def display_results(x, switch = 0):
-
+		def display_results(x, scope =[0,20] ,switch = 0):
+			print (len(x))
 
 			if switch == 0:
 
-				pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(x,range(len(x)))][:20])
+				pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(x[:20],range(scope[0],scope[1]))])
 
 			if switch == 0 or switch == 1:
 				print ('========================================================================')
@@ -62,18 +62,20 @@ class search:
 
 			if _input == 'more' and len(x) > 0:
 
-				return display_results(x[20:], switch = 1)
+				return display_results(x[20:],[scope[1] , scope[1] + 20] ,switch = 0)
 
 			elif _input == 'cancel':
 				raise Exception("It's canceled")
 
 			elif re.search('^index\\((?:[0-9 ]+,?)*[0-9]\\)$', _input):
 
-				return [   i.split(',') for i in re.sub('index|\(|\)| +','',_input)]
+				print (re.sub('index|\(|\)| +','',_input).split())
+
+				return np.array(re.sub('index|\(|\)| +','',_input).split())
 
 			else:
 				print ("unknown inputs, please try it again")
-				return display_results(x[20:], switch = 2)
+				return display_results(x[20:], [scope[0],scope[1]],switch = 2)
 
 
 		fil_re = "UPC[^0-9a-zA-Z]+[0-9]+"
@@ -91,7 +93,13 @@ class search:
 
 		data = data[sorting_result(food,data)]
 
-		return display_results(data)
+		temp1 = display_results(data)
+
+		data = [ data[int(i)] for i in temp1]
+		print (data)
+		del temp1
+
+		return data
 
 
 
@@ -132,7 +140,7 @@ class NutritionDataLibrary(search):
 	mode = 'm'
 	oraora = []
 	_exact_word = 0
-	ndbno = None
+	ndbno = []
 
 	def _helper1(x):
 		return x.replace("'", "").replace('"', "").replace(",", "").replace("&", "").replace(" ", "").replace("-","").lower()
@@ -152,7 +160,7 @@ class NutritionDataLibrary(search):
 			print ( "[" + ", ".join(self.oraora) + ']  do/does not exist'  if len(self.oraora) != 0 else '')
 
 
-		gc.collect()
+
 		return df
 
 
@@ -176,7 +184,7 @@ class NutritionDataLibrary(search):
 		try:
 
 			data1 = self.FoodNDB()( foods[0],**kwargs )
-
+			self.ndbno += [ i['ndbno'] for i in data1]
 
 			if not cache_ndb._boolean_exist('nd',foods[0]):
 
@@ -194,13 +202,16 @@ class NutritionDataLibrary(search):
 				
 				kwargs.update({ 'lst_index' :kwargs[1:] })
 
-			return recursive_helper(data1['foods']) + self._retrieving_nutrition_data(foods[1:],c , **kwargs)
+
+			
+
+			return recursive_helper(data1['foods']) + self._retrieving_nutrition_data(foods[1:] , **kwargs)
 
 
 		except KeyError:
 
 			self.oraora += [foods[0]]
-			return self._retrieving_nutrition_data(self,foods[1:],c ,**kwargs)
+			return self._retrieving_nutrition_data(self,foods[1:] ,**kwargs)
 
 
 	def _retrieving_nutrition_data_ndbno(self,foods,ndbno=None,**kwargs):
@@ -221,13 +232,12 @@ class NutritionDataLibrary(search):
 			return []
 
 		data1 = requests.get(self.nd_url , params = (('api_key', self.api_key), ('ndbno',ndbno[0])) ).json()
+
+
+
 		return recursive_helper(data1['foods']) + self._retrieving_nutrition_data_ndbno(foods[1:],ndbno[1:])
 
 
-
-
-	def min_cost():
-		pass
 
 
 class FoodLibrary(NutritionDataLibrary):
@@ -252,6 +262,74 @@ class FoodLibrary(NutritionDataLibrary):
 	def processing_kwargs(**kwargs):
 		for i in kwargs:
 			self.i = kwargs[i]
+
+
+	def min_cost():
+		muda1 = nd_m.gsheet().set_index('Food').loc[:'PASTA, UPC: 814553000406',:]
+		muda2 = test1(muda1)
+		df = muda2
+
+
+
+		D = nd_m.ora(nd_m.lst,mode='test2',lst_index = nd_m.ind)
+
+
+
+		Prices = muda2.groupby('Food')['NDB Price'].min()
+
+
+		#print (Prices)
+		tol = 1e-6 # Numbers in solution smaller than this (in absolute value) treated as zeros
+
+		c = Prices.apply(lambda x:x.magnitude).dropna()
+		c = c.apply(lambda x: 0.2 if x > 1 else x)
+
+		# Compile list that we have both prices and nutritional info for; drop if either missing
+		# Drop nutritional information for foods we don't know the price of,
+		# and replace missing nutrients with zeros.
+		Aall = D[c.index].fillna(0)
+
+
+		# Drop rows of A that we don't have constraints for.
+		Amin = Aall.loc[bmin.index]
+		Amax = Aall.loc[bmax.index]
+
+		# Minimum requirements involve multiplying constraint by -1 to make <=.
+		A = pd.concat([-Amin,Amax]).astype(np.float64)
+		b = pd.concat([-bmin,bmax]).astype(np.float64) # Note sign change for min constraints
+		print (c)
+
+		A = Amin
+		b = np.array(bmin).reshape(21,)
+
+
+		# Now solve problem!
+
+		result = lp(c, A_ub= -A, b_ub = -b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
+		#result.x = result.x.astype(np.int64)
+		print (len([int(i) for i in result.x]))
+		print ('==============================')
+		print (result.message)
+		print ('==============================')
+		# Put back into nice series
+		diet = pd.Series(result.x,index=c.index)
+
+
+
+
+		print("Cost of diet for %s is $%4.2f per day." % (group,result.fun))
+		print("\nYou'll be eating (in 100s of grams or milliliters):")
+		print(diet[diet >= tol])  # Drop items with quantities less than precision of calculation
+
+		tab = pd.DataFrame({"Outcome":np.abs(A).dot(diet),"Recommendation":np.abs(b)})
+
+		print("\nWith the following nutritional outcomes of interest:")
+		print(tab)
+		print("\nConstraining nutrients are:")
+
+		excess = tab.diff(axis=1).iloc[:,1]
+
+		print(excess.loc[np.abs(excess) < tol].index.tolist())
 
 
 class cache_ndb:
@@ -287,18 +365,12 @@ class cache_ndb:
 def sorting_result(foodname, x):
 	regx = "(?:UPC[^0-9a-zA-Z]*[0-9]+)|(?:[^\w ]|  +)|(?:[0-9]+)"
 	foodname1 = re.sub(regx,"",foodname.lower()).split()
-	foodname1 = "|" + "|".join(foodname1) + "| "
+	foodname1 = "|" + "|".join(foodname1) + "| +"
 
-	temp1 = np.array([ (j,re.sub(regx ,"",i['name'].lower() ), len(re.sub(regx+foodname1,"", i['name'])) ) for i,j in zip(x,range(len(x)))], dtype=[('index', int),('name','U70') ,('leng', int)])
+	temp1 = np.array([ (j,re.sub(regx ,"",i['name'].lower() ), ((len(re.sub(regx+foodname1,"", i['name'].lower())))**2)**0.5 ) for i,j in zip(x,range(len(x)))], dtype=[('index', int),('name','U70') ,('leng', int)])
 	temp1.sort(order='leng',kind='mergesort')
 
 	temp1 = np.append(temp1[np.char.find(temp1['name'], foodname) != -1], temp1[np.char.find(temp1['name'], foodname) == -1])
-
-
-
-	#print (temp1[np.char.find(temp1['name'], foodname) == -1][:30])
-	#print (temp1)
-	#temp1 = temp1[np.argsort(np.char.find(temp1['name'], foodname) * -1)]
 
 
 	return temp1['index']
