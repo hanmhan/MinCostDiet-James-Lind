@@ -8,34 +8,162 @@ import pprint
 import os
 
 
-GodMode = False
-ind = None
+mode = 'm'
+
+def foods_spreadsheet(local = None, spreadsheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?output=csv'):
 
 
-mode = 'ui'
+	return pd.read_csv(spreadsheet_url)
+	
 
-class HelperFucClass:
+
+class search:
+
+	punct_re = r"[^\w ]|  +"
+	se_url = 'https://api.nal.usda.gov/ndb/search?format=json&sort=n'
+	maxx = 1500
+
+	def __init__(self):
+		pass
+
+
+	def FoodNDB(self):
+
+		if mode == 'm':
+
+			return self.search_user
+
+		elif mode == 'auto_pick':
+
+			return self.search_insider
+
+		elif mode == 'index':
+
+			return self.search_test
+
+
+
+	def search_user(self, food):
+
+		def display_results(x, switch = 0):
+
+
+			if switch == 0:
+
+				pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(x,range(len(x)))][:20])
+
+			if switch == 0 or switch == 1:
+				print ('========================================================================')
+				print ('please input the products you want following the next line ')
+				print ('For instance:')
+				print ('1. index(0,1,2,3)')
+				print ('2. more')
+				print ('3. cancel')
+
+			_input = input('>>>>> ')
+
+			if _input == 'more' and len(x) > 0:
+
+				return display_results(x[20:], switch = 1)
+
+			elif _input == 'cancel':
+				raise Exception("It's canceled")
+
+			elif re.search('^index\\((?:[0-9 ]+,?)*[0-9]\\)$', _input):
+
+				return [   i.split(',') for i in re.sub('index|\(|\)| +','',_input)]
+
+			else:
+				print ("unknown inputs, please try it again")
+				return display_results(x[20:], switch = 2)
+
+
+		fil_re = "UPC[^0-9a-zA-Z]+[0-9]+"
+		punct_re = r'[^\w ]|  +'
+
+		food = re.sub(punct_re," ",food.lower())
+		food_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
+		if not cache_ndb._boolean_exist('ndbno',food, index = True):
+
+			data = np.array(requests.get(self.se_url , params = (('q', food),('api_key', self.api_key),('max',self.maxx))).json()['list']['item'])
+			cache_ndb._update('ndbno', {food: data}, index = 0)
+		else:
+			data = cache_ndb._caches['ndbno'][0][food]
+
+		data = data[sorting_result(data)]
+
+		return display_results(data)
+
+
+
+	def index_searching(self,food,lst_index=[]):
+
+
+		punct_re = r"[^\w ]|  +"
+		food = re.sub(punct_re," ",food.lower())
+		food_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
+
+		if not cache_ndb._boolean_exist('ndbno',food, index = True):
+
+			data = requests.get(self.se_url , params = (('q', food),('api_key', self.api_key),('max',self.maxx))).json()['list']['item']
+
+			cache_ndb._update('ndbno', {food: data}, index = 0)
+
+		else:
+
+			data = cache_ndb._caches['ndbno'][0][food]
+
+
+
+		tempx =  np.array([i for i in data if re.findall(food_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if self._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(food_re.split('|')) ])
+
+		qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == lst_index[0] ]
+		
+		return qwe
+
+
+
+class NutritionDataLibrary(search):
 
 	profkey = 'inIyO1begWSRqsYtxS7m6p09PSyq7Qiw7fxzV2qN'
 	mykey = 'JPk6gFJ2IAI7YNFQuXQ7wIwUyPXTMxoKAriLzZU2'
 	mykey2 = 'qKtE5wujwySVB2sCbwQEpNkCt3r3i2BrIU23F6TL'
 	api_key = mykey2
-
-
 	nd_url = 'https://api.nal.usda.gov/ndb/V2/reports?format=json&type=b'
-
+	mode = 'm'
 	oraora = []
 	_exact_word = 0
+	ndbno = None
+
 	def _helper1(x):
 		return x.replace("'", "").replace('"', "").replace(",", "").replace("&", "").replace(" ", "").replace("-","").lower()
 
-	def getting_nutrition_data(foods,c=None,**kwargs):
+
+	def nutrition_dataframe(self, foods = None, **kwargs  ):
+
+		if self.mode == 'ndbno':
+			df = pd.DataFrame(self._retrieving_nutrition_data(self, foods, **kwargs),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
+			
+			df.columns  = df.columns.droplevel(level=0)
+
+
+		else:
+			df = pd.DataFrame(self._retrieving_nutrition_data(self, foods, c, **kwargs),columns = ['Food Name','Nutrients','Nutritional value'],dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
+			df.columns  = df.columns.droplevel(level=0)
+			print ( "[" + ", ".join(self.oraora) + ']  do/does not exist'  if len(self.oraora) != 0 else '')
+
+
+		gc.collect()
+		return df
+
+
+
+	def _retrieving_nutrition_data(self, foods,**kwargs):
 		
 		def recursive_helper(foods_nd_lst):
 
 			if len(foods_nd_lst) == 0:
 				return []
-
 
 			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
 		"""def average of duplicates(x,a):
@@ -44,21 +172,19 @@ class HelperFucClass:
 			return  """
 
 
-
-
 		if len(foods) == 0:
-
 			return []
 
 
 
 		try:
-			data1 = search.FoodNDB()(foods[0],c,**kwargs )
+
+			data1 = self.FoodNDB()(self, foods[0],c,**kwargs )
+
 
 			if not cache_ndb._boolean_exist('nd',foods[0]):
 
-
-				data1 = requests.get(HelperFucClass.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', HelperFucClass.api_key),)    ).json()
+				data1 = requests.get(self.nd_url , params = tuple(( ('ndbno',i['ndbno']) for i in data1)) + (('api_key', self.api_key),)    ).json()
 
 				cache_ndb._update('nd', {foods[0]: data1})
 
@@ -68,22 +194,21 @@ class HelperFucClass:
 
 					
 
-
-
-			if kwargs:
+			if 'lst_index' in kwargs:
 				
-				kwargs = { i:kwargs[i][1:]  for i in kwargs}
+				kwargs.update({ 'lst_index' :kwargs[1:] })
 
-			return recursive_helper(data1['foods']) + HelperFucClass.getting_nutrition_data(foods[1:],c , **kwargs)
+			return recursive_helper(data1['foods']) + self._retrieving_nutrition_data(foods[1:],c , **kwargs)
 
 
 		except KeyError:
 
-			HelperFucClass.oraora += [foods[0]]
-			return HelperFucClass.getting_nutrition_data(foods[1:],c ,**kwargs)
+			self.oraora += [foods[0]]
+			return self._retrieving_nutrition_data(self,foods[1:],c ,**kwargs)
 
 
-	def getting_nutrition_data_ndbno(foods,ndbno=[]):
+	def _retrieving_nutrition_data_ndbno(self,foods,ndbno=None,**kwargs):
+
 		def recursive_helper(foods_nd_lst):
 
 			if len(foods_nd_lst) == 0:
@@ -91,176 +216,46 @@ class HelperFucClass:
 
 
 			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
+
+
+		if ndbno == None:
+			ndbno = self.ndbno.copy()
+
 		if len(foods) == 0:
-
 			return []
-		data1 = requests.get(HelperFucClass.nd_url , params = (('api_key', HelperFucClass.api_key), ('ndbno',ndbno[0]))    ).json()
-		return recursive_helper(data1['foods']) + HelperFucClass.getting_nutrition_data_ndbno(foods[1:],ndbno[1:])
-class search:
-	nd_url = 'https://api.nal.usda.gov/ndb/search?format=json'
-	maxx = 1500
 
-	def __init__(self):
+		data1 = requests.get(self.nd_url , params = (('api_key', self.api_key), ('ndbno',ndbno[0])) ).json()
+		return recursive_helper(data1['foods']) + self._retrieving_nutrition_data_ndbno(foods[1:],ndbno[1:])
+
+
+
+
+	def min_cost():
 		pass
 
 
-	def FoodNDB():
-
-		if mode == 'ui':
-
-			return search.search_user
-
-		elif mode == 'test':
-
-			return search.search_insider
-
-		elif mode == 'test2':
-
-			return search.search_test
-
-
-
-	def search_user(food, c = 'safeway'):
-
-		qwertyui = "UPC [0-9]+"
-		punct_re = r'[^\w ]|  +'
-		food = re.sub(punct_re," ",food.lower())
-		fil_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
-
-		data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',search.maxx)))
-
-		tempx =  np.array([i for i in data.json()['list']['item'] if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
-	
-		#print (len(tempx))
-		#print (tempx)
-		if GodMode == True:
-			print (ind[0])
-			qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == ind[0] ]
-
-			ind.remove(ind[0])
-
-
-			return qwe
-
-		#temp2 = [   (' '.join(i['name'].split()[:[k for j,k in zip(i['name'].split(), range(len(i['name'].split()))) if 'UPC' in j][0]])) for i in tempx]
-		pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(tempx,range(len(tempx)))][:300])
-		print ('========================================================================')
-		print ('please input the products you want following the next line ')
-		print ('For instance:')
-		#print ('1. x1')
-		#print ('2. x1/x2/x3')
-		print ('3. index(0,1,2,3)')
-		print ('4. esc')
-		_input = input('>>>>> ')
-		if 'index' in _input:
-			temp3 = [int(i) for i in _input.replace('index',"").replace('(',"").replace(')','').split(',')]
-	
-			return [i for i,j in zip(tempx,range(len(tempx))) if j in temp3 ]
-
-
-		elif '/' in _input:
-			temp3 = np.array([ HelperFucClass._helper1(i) for i in  _input.replace("'", "").replace('"', "").split("/")])
-	
-
-			return tempx[[True if HelperFucClass._helper1(i) in temp3 else False for i in temp2]]
-		elif 'esc' == _input:
-			return None
-		else:
-			return [ i for i in tempx if _input.lower() in i['name'].lower()][0]
-		return list(tempx)
-
-
-
-	def search_insider(food, c = 'safeway'):
-
-
-		punct_re = r'[^\w ]'
-		temp_raw = 'raw ' + re.sub(punct_re," ",food)
-		#abcd = re.sub(punct_re," ",'Broccoli raab, raw'.lower())
-		#print (len(abcd.split()))
-
-		if not cache_ndb._boolean_exist('ndbno','raw ' + food, index = True):
-
-			
-
-			data2 = requests.get(search.nd_url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',search.maxx), ('ds','Standard Reference'))).json()['list']['item']
-			data1 = requests.get(search.nd_url , params = (('q', temp_raw),('api_key', HelperFucClass.api_key),('max',search.maxx))).json()['list']['item']
-
-			cache_ndb._update('ndbno', {temp_raw.lower(): data1}, index = 0)
-			cache_ndb._update('ndbno', {temp_raw.lower(): data2}, index = 1)
-
-
-
-		else:
-
-			data1 = cache_ndb._caches['ndbno'][0][temp_raw.lower()]
-			data2 = cache_ndb._caches['ndbno'][1][temp_raw.lower()]
-	
-		if HelperFucClass._exact_word:
-			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
-			temp_list = None
-
-	
-		else:
-			temp_list = [i if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())  else None if not len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split()) + 2 or not 'UPC' in i['name'] else i for i in data1]
-			temp_list = [i for i in temp_list if i != None] 
-
-			#temp_list = None
-			temp_list2 =  [i for i in data2 if len(re.findall( 'raw|'+food.lower(),re.sub(punct_re," ",i['name'].lower()) )) == len(temp_raw.split()) and len(re.sub(punct_re," ",i['name'].lower()).split()) == len(temp_raw.split())]
-
-		
-
-		if temp_list or temp_list2:
-	
-			return temp_list2 if temp_list2 else temp_list
-
-
-		print ('Errorrrrrrrrrrrrrrrrrrrrrrrrr')
-		"""else:
-		
-			if not cache_ndb._boolean_exist('ndbno',food):
-
-				data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.mykey),('max',search.maxx))).json()['list']['item']
-				cache_ndb._update('ndbno', {food.lower(): [i for i in data]})
-
-			else:
-
-				data = cache_ndb._caches['ndbno'][food]
-
-			return [1,2]"""
-
-
-	def search_test(food,c = 'safeway',lst_index=[]):
-
-		qwertyui = "UPC [0-9]+"
-		punct_re = r'[^\w ]|  +'
-		food = re.sub(punct_re," ",food.lower())
-		fil_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
-
-		if not cache_ndb._boolean_exist('ndbno',food, index = True):
-
-
-			
-
-			data = requests.get(search.nd_url , params = (('q', food),('api_key', HelperFucClass.api_key),('max',search.maxx))).json()['list']['item']
-
-			cache_ndb._update('ndbno', {food: data}, index = 0)
+class FoodLibrary(NutritionDataLibrary):
 
 
 
 
-		else:
+	def __init__(self, foods = None, **kwargs):
 
-			data = cache_ndb._caches['ndbno'][0][food]
+		for i in kwargs:
+			self.i = kwargs[i]
 
+		self.foods = foods
+		self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?output=csv'
 
+	def change_foods_spreadsheet(spreadsheet_local_url = None):
 
-		tempx =  np.array([i for i in data if re.findall(fil_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if HelperFucClass._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(fil_re.split('|')) ])
+		self.foods_spreadsheet = spreadsheet_local_url if spreadsheet_local_url != None else  self.foods_spreadsheet
 
-		qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == lst_index[0] ]
-		
-		return qwe
+		print (self.foods_spreadsheet)
 
+	def processing_kwargs(**kwargs):
+		for i in kwargs:
+			self.i = kwargs[i]
 
 
 class cache_ndb:
@@ -293,5 +288,19 @@ class cache_ndb:
 
 
 
+def sorting_result(foodname, x):
+	regx = "(?:UPC[^0-9a-zA-Z]*[0-9]+)|(?:[^\w ]|  +)|(?:[0-9]+)"
+	foodname1 = re.sub(regx,"",foodname.lower()).split()
+	foodname1 = "|" + "|".join(foodname1) + "| "
 
+	temp1 = np.array([ (j,re.sub(regx ,"",i['name'].lower() ), len(re.sub(regx+foodname1,"", i['name'])) ) for i,j in zip(x,range(len(x)))], dtype=[('index', int),('name','U70') ,('leng', int)])
+	temp1.sort(order='leng',kind='mergesort')
+
+	temp1 = temp1[np.argsort(np.char.find(temp1['name'], foodname) * -1)]
+
+
+	return temp1['index']
+
+abcd = [{'name':'test'},{'name':'testtest'},{'name':'tesst'},{'name':'asdaf'},{'name':'testhgdsfgdasdst'},{'name':'tesqweqwt'},{'name':'testqwt'}   ]
+print (algorithm('test',abcd ))
 
