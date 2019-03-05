@@ -33,9 +33,7 @@ class search:
 
 			return self.search_user
 
-		elif mode == 'auto_pick':
 
-			return self.search_insider
 
 		elif mode == 'index':
 
@@ -86,11 +84,12 @@ class search:
 		if not cache_ndb._boolean_exist('ndbno',food, index = True):
 
 			data = np.array(requests.get(self.se_url , params = (('q', food),('api_key', self.api_key),('max',self.maxx))).json()['list']['item'])
-			cache_ndb._update('ndbno', {food: data}, index = 0)
+			cache_ndb._update('ndbno', {food: list(data)}, index = 0)
 		else:
-			data = cache_ndb._caches['ndbno'][0][food]
+			data = np.array(cache_ndb._caches['ndbno'][0][food])
 
-		data = data[sorting_result(data)]
+
+		data = data[sorting_result(food,data)]
 
 		return display_results(data)
 
@@ -148,7 +147,7 @@ class NutritionDataLibrary(search):
 
 
 		else:
-			df = pd.DataFrame(self._retrieving_nutrition_data(self, foods, c, **kwargs),columns = ['Food Name','Nutrients','Nutritional value'],dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
+			df = pd.DataFrame(self._retrieving_nutrition_data( foods,  **kwargs),columns = ['Food Name','Nutrients','Nutritional value'],dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
 			df.columns  = df.columns.droplevel(level=0)
 			print ( "[" + ", ".join(self.oraora) + ']  do/does not exist'  if len(self.oraora) != 0 else '')
 
@@ -166,10 +165,7 @@ class NutritionDataLibrary(search):
 				return []
 
 			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
-		"""def average of duplicates(x,a):
 
-			pd.Series(x).groupby(a).agg(lambda y : sum(y)/len(y))
-			return  """
 
 
 		if len(foods) == 0:
@@ -179,7 +175,7 @@ class NutritionDataLibrary(search):
 
 		try:
 
-			data1 = self.FoodNDB()(self, foods[0],c,**kwargs )
+			data1 = self.FoodNDB()( foods[0],**kwargs )
 
 
 			if not cache_ndb._boolean_exist('nd',foods[0]):
@@ -296,11 +292,17 @@ def sorting_result(foodname, x):
 	temp1 = np.array([ (j,re.sub(regx ,"",i['name'].lower() ), len(re.sub(regx+foodname1,"", i['name'])) ) for i,j in zip(x,range(len(x)))], dtype=[('index', int),('name','U70') ,('leng', int)])
 	temp1.sort(order='leng',kind='mergesort')
 
-	temp1 = temp1[np.argsort(np.char.find(temp1['name'], foodname) * -1)]
+	temp1 = np.append(temp1[np.char.find(temp1['name'], foodname) != -1], temp1[np.char.find(temp1['name'], foodname) == -1])
+
+
+
+	#print (temp1[np.char.find(temp1['name'], foodname) == -1][:30])
+	#print (temp1)
+	#temp1 = temp1[np.argsort(np.char.find(temp1['name'], foodname) * -1)]
 
 
 	return temp1['index']
 
 abcd = [{'name':'test'},{'name':'testtest'},{'name':'tesst'},{'name':'asdaf'},{'name':'testhgdsfgdasdst'},{'name':'tesqweqwt'},{'name':'testqwt'}   ]
-print (algorithm('test',abcd ))
+#print (sorting_result('test',abcd ))
 
