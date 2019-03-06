@@ -8,8 +8,9 @@ import pprint
 import os
 import ndb
 from  scipy.optimize import linprog as lp
-
-
+import matplotlib.pyplot as plt
+from ipywidgets import interact
+import seaborn as sns
 
 
 class search:
@@ -259,30 +260,25 @@ class FoodLibrary(NutritionDataLibrary):
 			self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'
 
 
-	def min_cost(self, gender="all", age_range="19-30",**kwargs):
+	def min_cost(self, groups=['F 19-30','M 19-30'] , **kwargs):
 
 		if len(self.ndf) == 0 or len(self.foods_spreadsheet) == 0:
 			raise Exception("Please get a nutrition dataframe/spreadsheet for food first." )
 
-		group = "F 19-30"
-		group2 = 'M 19-30'
-		diet_min = pd.read_csv('diet_minimums.csv')
-		diet_max = pd.read_csv('diet_maximums.csv')
-		tmin1 = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group]
-		tmax1 = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group]
-		tmin2 = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group2]
-		tmax2 = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group2]
-		bmin = tmin1 + tmin2
-		bmin = bmin / 2
-		bmax = tmax1 + tmax2
-		bmax = bmax / 2
+		def average_of_groups(group,table):
+			if len(group) == 1:
+				return table[group[0]]
 
+
+			return table[group[0]] + average_of_groups(group[1:],table)
+
+		min_table = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')
+		max_table = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')
+
+		min_of_groups = average_of_groups(groups,min_table) / len(groups)
+		max_of_groups = average_of_groups(groups,max_table) / len(groups)
 
 		def test1(ndf):
-
-			ndf['Quantity'] = [float(i)for i in ndf['Quantity']]
-
-			ndf['Price'] = [float(i[1:])for i in ndf['Price']]
 
 			ndf['NDB Quantity'] = ndf[['Quantity','Units']].T.apply(lambda x : ndb.ndb_units(x['Quantity'],x['Units']))
 
@@ -290,17 +286,30 @@ class FoodLibrary(NutritionDataLibrary):
 
 			return ndf
 
+		df = pd.read_csv(self.foods_spreadsheet)
+		df['Quantity'] = [float(i)for i in df['Quantity']]
+		df['Price'] = [float(i[1:])for i in df['Price']]
 
+		if 'price_delta' in kwargs:
+
+			print ('=======================================================================================================================================')
+			print ('The Price for '+ "change from " +"test" + "to")
+			df['Price'] = df['Price'].where(df['Food'] != kwargs['price_delta'][0], df['Price']* (1 +  (kwargs['price_delta'][1])/100)  )
+			print ('=======================================================================================================================================')
+
+
+
+		df = test1(df)
 		D = self.ndf
-		muda1 = pd.read_csv(self.foods_spreadsheet)
-		df = test1(muda1)
-		del muda1
-		
+
+
 
 		df.dropna(how='any') 
 		Prices = df.groupby('Food')['NDB Price'].min()
 
 
+		regx1 = "[fFmM]{1}"
+		regx2 = r"[^\w ]+"
 
 		tol = 1e-6 # Numbers in solution smaller than this (in absolute value) treated as zeros
 
@@ -313,12 +322,12 @@ class FoodLibrary(NutritionDataLibrary):
 
 
 		# Drop rows of A that we don't have constraints for.
-		Amin = Aall.loc[bmin.index]
-		Amax = Aall.loc[bmax.index]
+		Amin = Aall.loc[min_of_groups.index]
+		Amax = Aall.loc[max_table.index]
 
 		# Minimum requirements involve multiplying constraint by -1 to make <=.
 		A = pd.concat([-Amin,Amax])
-		b = pd.concat([-bmin,bmax]) # Note sign change for min constraints
+		b = pd.concat([-min_of_groups,max_of_groups]) # Note sign change for min constraints
 
 
 
@@ -328,9 +337,15 @@ class FoodLibrary(NutritionDataLibrary):
 		diet = pd.Series(result.x,index=c.index)
 
 
+		self.result_comp = diet[diet >= tol]
+		self.result_cost = result.fun
+		print (list(self.result_comp))
 
 
-		print("Cost of diet for %s is $%4.2f per day." % (group,result.fun))
+
+		temp1 = 'the average of the (' + ', '.join(groups) + ')' if len(groups) > 1 else groups[0]
+
+		print("Cost of diet for %s is $%4.2f per day." % (temp1,result.fun))
 		print("\nYou'll be eating (in 100s of grams or milliliters):")
 		print(diet[diet >= tol])  # Drop items with quantities less than precision of calculation
 
@@ -359,6 +374,26 @@ class FoodLibrary(NutritionDataLibrary):
 		print ('successful!')
 
 
+
+	def visualization(self,food='asparagus, raw',groups=['F 19-30','M 19-30'], range = [0,100]):
+
+
+		def f(x):
+
+			self.min_cost(groups, price_delta=[food,x])
+
+			self.result_cost
+			self.result_comp
+			fg, ax = plt.subplots(figsize=(12,9))
+
+			sns.barplot(list(self.result_comp.index),list(self.result_comp) , ax=ax)
+
+			sns.set_style("ticks", {"xtick.major.size": 8})
+			ax.set_title('Nutrients Obtained From Diet')
+			ax.set_ylabel('100s of grams or milliliters')
+			plt.show()
+
+		interact(f, x=(range[0],range[1],1));
 
 
 class cache_ndb:
