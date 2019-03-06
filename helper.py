@@ -292,12 +292,10 @@ class FoodLibrary(NutritionDataLibrary):
 
 		if 'price_delta' in kwargs:
 			temp9 = list(df['Price'][df['Food'] ==  kwargs['price_delta'][0]])[0]
-			print ('================================================================================================')
-			print ('================================================================================================')
-			print ('The Price for '+kwargs['price_delta'][0] +" changes from $" + str(temp9) + " to $"  + str(temp9*(1 +  (kwargs['price_delta'][1])/100)) )
+			self._text = 'The Price for '+kwargs['price_delta'][0] +" changes from $" + str(temp9) + " to $"  + str(temp9*(1 +  (kwargs['price_delta'][1])/100)) 
+			del temp9
 			df['Price'] = df['Price'].where(df['Food'] != kwargs['price_delta'][0], df['Price']* (1 +  (kwargs['price_delta'][1])/100)  )
-			print ('================================================================================================')
-			print ('================================================================================================')
+
 
 
 		df = test1(df)
@@ -383,8 +381,10 @@ class FoodLibrary(NutritionDataLibrary):
 
 			self.min_cost(groups, price_delta=[food,x])
 
-			self.result_cost
-			self.result_comp
+
+			print ('================================================================================================')
+			print (self._text)
+			print ('================================================================================================')
 			fg, ax = plt.subplots(figsize=(12,9))
 
 			sns.barplot(list(self.result_comp.index),list(self.result_comp) , ax=ax)
