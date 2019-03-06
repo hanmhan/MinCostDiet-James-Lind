@@ -291,9 +291,7 @@ class FoodLibrary(NutritionDataLibrary):
 		df['Price'] = [float(i[1:])for i in df['Price']]
 
 		if 'price_delta' in kwargs:
-			temp9 = list(df['Price'][df['Food'] ==  kwargs['price_delta'][0]])[0]
-			self._text = 'The Price for '+kwargs['price_delta'][0] +" changes from $" + str(temp9) + " to $"  + str(temp9*(1 +  (kwargs['price_delta'][1])/100)) 
-			del temp9
+
 			df['Price'] = df['Price'].where(df['Food'] != kwargs['price_delta'][0], df['Price']* (1 +  (kwargs['price_delta'][1])/100)  )
 
 
@@ -336,8 +334,12 @@ class FoodLibrary(NutritionDataLibrary):
 		diet = pd.Series(result.x,index=c.index)
 
 
+		if 'price_delta' not in kwargs:
+			self.ot = str(result.fun)
+
 		self.result_comp = diet[diet >= tol]
-		self.result_cost = result.fun
+		self.result_cost = str(result.fun)
+
 
 
 
@@ -384,7 +386,9 @@ class FoodLibrary(NutritionDataLibrary):
 			print ('\n')
 			print ('\n')
 			print ('================================================================================================')
-			print (self._text)
+
+
+			print ('The Price for '+str(food) +" changes from $" + self.ot + " to $"  + self.result_cost)
 			print ('================================================================================================')
 			fg, ax = plt.subplots(figsize=(12,9))
 
