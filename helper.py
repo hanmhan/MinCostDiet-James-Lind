@@ -6,11 +6,12 @@ import requests
 import re
 import pprint
 import os
-
+import ndb
+from  scipy.optimize import linprog as lp
 
 mode = 'm'
 
-def foods_spreadsheet(local = None, spreadsheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?output=csv'):
+def foods_spreadsheet(local = None, spreadsheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'):
 
 
 	return pd.read_csv(spreadsheet_url)
@@ -29,19 +30,19 @@ class search:
 
 	def FoodNDB(self):
 
-		if mode == 'm':
+		if self.mode == 'm':
 
 			return self.search_user
 
 
 
-		elif mode == 'index':
+		elif self.mode == 'index':
 
-			return self.search_test
+			return self.index_searching
 
 
 
-	def search_user(self, food):
+	def search_user(self, food,**kwargs):
 
 		def display_results(x, scope =[0,20] ,switch = 0):
 			print (len(x))
@@ -96,35 +97,31 @@ class search:
 		temp1 = display_results(data)
 
 		data = [ data[int(i)] for i in temp1]
-		print (data)
+
 		del temp1
 
 		return data
 
 
 
-	def index_searching(self,food,lst_index=[]):
+	def index_searching(self,food,lst_index=[],**kwargs):
 
 
-		punct_re = r"[^\w ]|  +"
+		fil_re = "UPC[^0-9a-zA-Z]+[0-9]+"
+		punct_re = r'[^\w ]|  +'
+
 		food = re.sub(punct_re," ",food.lower())
 		food_re =  '|'.join(food.split()) if len(food.split()) > 1 else food.lower()
-
 		if not cache_ndb._boolean_exist('ndbno',food, index = True):
 
-			data = requests.get(self.se_url , params = (('q', food),('api_key', self.api_key),('max',self.maxx))).json()['list']['item']
-
-			cache_ndb._update('ndbno', {food: data}, index = 0)
-
+			data = np.array(requests.get(self.se_url , params = (('q', food),('api_key', self.api_key),('max',self.maxx))).json()['list']['item'])
+			cache_ndb._update('ndbno', {food: list(data)}, index = 0)
 		else:
-
-			data = cache_ndb._caches['ndbno'][0][food]
-
+			data = np.array(cache_ndb._caches['ndbno'][0][food])
 
 
-		tempx =  np.array([i for i in data if re.findall(food_re, re.sub(punct_re ," ",i['name'].lower()) ) ]) if self._exact_word else np.array([i for i in data.json()['list']['item'] if len( re.sub(punct_re ," ",i['name'].lower())) == len(food_re.split('|')) ])
-
-		qwe = [i for i,j in zip(tempx,range(len(tempx))) if  j == lst_index[0] ]
+		data = data[sorting_result(food,data)]
+		qwe = [i for i,j in zip(data,range(len(data))) if  j == lst_index[0] ]
 		
 		return qwe
 
@@ -147,6 +144,12 @@ class NutritionDataLibrary(search):
 
 
 	def nutrition_dataframe(self, foods = None, **kwargs  ):
+		print(self.mode)
+		if 'mode' in kwargs:
+
+			self.mode = kwargs['mode']
+			print(self.mode)
+
 
 		if self.mode == 'ndbno':
 			df = pd.DataFrame(self._retrieving_nutrition_data(self, foods, **kwargs),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
@@ -200,7 +203,7 @@ class NutritionDataLibrary(search):
 
 			if 'lst_index' in kwargs:
 				
-				kwargs.update({ 'lst_index' :kwargs[1:] })
+				kwargs.update({ 'lst_index' :kwargs['lst_index'][1:] })
 
 
 			
@@ -251,7 +254,7 @@ class FoodLibrary(NutritionDataLibrary):
 			self.i = kwargs[i]
 
 		self.foods = foods
-		self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?output=csv'
+		self.foods_spreadsheet = 'p2s.csv'
 
 	def change_foods_spreadsheet(spreadsheet_local_url = None):
 
@@ -264,17 +267,34 @@ class FoodLibrary(NutritionDataLibrary):
 			self.i = kwargs[i]
 
 
-	def min_cost():
-		muda1 = nd_m.gsheet().set_index('Food').loc[:'PASTA, UPC: 814553000406',:]
+	def min_cost(self):
+		group = "F 19-30"
+		diet_min = pd.read_csv('diet_minimums.csv')
+		diet_max = pd.read_csv('diet_maximums.csv')
+		bmin = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group]
+		bmax = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group]
+		def test1(ndf):
+
+			ndf['Quantity'] = [float(i)for i in ndf['Quantity']]
+
+			ndf['Price'] = [float(i[1:])for i in ndf['Price']]
+
+			ndf['NDB Quantity'] = ndf[['Quantity','Units']].T.apply(lambda x : ndb.ndb_units(x['Quantity'],x['Units']))
+
+			ndf['NDB Price'] = ndf['Price']/ndf['NDB Quantity']
+
+			return ndf
+
+		muda1 = pd.read_csv(self.foods_spreadsheet).iloc[:20,:]
 		muda2 = test1(muda1)
 		df = muda2
+		print (df[['NDB Quantity','NDB Price']])
 
 
-
-		D = nd_m.ora(nd_m.lst,mode='test2',lst_index = nd_m.ind)
-
+		D = self.nutrition_dataframe( list(df['Food']) ,mode='index',lst_index = [ int(re.findall('[0-9]+',i)[0]) for i in df['NDB']])
 
 
+		df.dropna(how='any') 
 		Prices = muda2.groupby('Food')['NDB Price'].min()
 
 
@@ -282,7 +302,6 @@ class FoodLibrary(NutritionDataLibrary):
 		tol = 1e-6 # Numbers in solution smaller than this (in absolute value) treated as zeros
 
 		c = Prices.apply(lambda x:x.magnitude).dropna()
-		c = c.apply(lambda x: 0.2 if x > 1 else x)
 
 		# Compile list that we have both prices and nutritional info for; drop if either missing
 		# Drop nutritional information for foods we don't know the price of,
@@ -295,17 +314,13 @@ class FoodLibrary(NutritionDataLibrary):
 		Amax = Aall.loc[bmax.index]
 
 		# Minimum requirements involve multiplying constraint by -1 to make <=.
-		A = pd.concat([-Amin,Amax]).astype(np.float64)
-		b = pd.concat([-bmin,bmax]).astype(np.float64) # Note sign change for min constraints
-		print (c)
-
-		A = Amin
-		b = np.array(bmin).reshape(21,)
+		A = pd.concat([-Amin,Amax])
+		b = pd.concat([-bmin,bmax]) # Note sign change for min constraints
 
 
 		# Now solve problem!
-
-		result = lp(c, A_ub= -A, b_ub = -b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
+		result = lp(c, A, b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
+		#result = lp(c, A_ub= -A, b_ub = -b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
 		#result.x = result.x.astype(np.int64)
 		print (len([int(i) for i in result.x]))
 		print ('==============================')
@@ -368,6 +383,7 @@ def sorting_result(foodname, x):
 	foodname1 = "|" + "|".join(foodname1) + "| +"
 
 	temp1 = np.array([ (j,re.sub(regx ,"",i['name'].lower() ), ((len(re.sub(regx+foodname1,"", i['name'].lower())))**2)**0.5 ) for i,j in zip(x,range(len(x)))], dtype=[('index', int),('name','U70') ,('leng', int)])
+	
 	temp1.sort(order='leng',kind='mergesort')
 
 	temp1 = np.append(temp1[np.char.find(temp1['name'], foodname) != -1], temp1[np.char.find(temp1['name'], foodname) == -1])
