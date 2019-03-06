@@ -291,12 +291,13 @@ class FoodLibrary(NutritionDataLibrary):
 		df['Price'] = [float(i[1:])for i in df['Price']]
 
 		if 'price_delta' in kwargs:
-
-			print ('=======================================================================================================================================')
-			print ('The Price for '+ "change from " +"test" + "to")
+			temp9 = list(df['Price'][df['Food'] ==  kwargs['price_delta'][0]])[0]
+			print ('================================================================================================')
+			print ('================================================================================================')
+			print ('The Price for '+kwargs['price_delta'][0] +" changes from $" + str(temp9) + " to $"  + str(temp9*(1 +  (kwargs['price_delta'][1])/100)) )
 			df['Price'] = df['Price'].where(df['Food'] != kwargs['price_delta'][0], df['Price']* (1 +  (kwargs['price_delta'][1])/100)  )
-			print ('=======================================================================================================================================')
-
+			print ('================================================================================================')
+			print ('================================================================================================')
 
 
 		df = test1(df)
@@ -339,7 +340,7 @@ class FoodLibrary(NutritionDataLibrary):
 
 		self.result_comp = diet[diet >= tol]
 		self.result_cost = result.fun
-		print (list(self.result_comp))
+
 
 
 
@@ -440,6 +441,6 @@ def sorting_result(foodname, x):
 
 	return temp1['index']
 
-	
+
 abcd = [{'name':'test'},{'name':'testtest'},{'name':'tesst'},{'name':'asdaf'},{'name':'testhgdsfgdasdst'},{'name':'tesqweqwt'},{'name':'testqwt'}   ]
 #print (sorting_result('test',abcd ))
