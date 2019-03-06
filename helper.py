@@ -39,13 +39,13 @@ class search:
 	def search_user(self, food,**kwargs):
 
 		def display_results(x, scope =[0,20] ,switch = 0):
-			print (len(x))
 
-			if switch == 0:
+
+			if switch == 0 or switch == 1:
 
 				pprint.pprint([ str(j) + ': '+i['name'] for i,j in zip(x[:20],range(scope[0],scope[1]))])
 
-			if switch == 0 or switch == 1:
+			if switch == 0:
 				print ('========================================================================')
 				print ('please input the products you want following the next line ')
 				print ('For instance:')
@@ -57,14 +57,13 @@ class search:
 
 			if _input == 'more' and len(x) > 0:
 
-				return display_results(x[20:],[scope[1] , scope[1] + 20] ,switch = 0)
+				return display_results(x[20:],[scope[1] , scope[1] + 20] ,switch = 1)
 
 			elif _input == 'cancel':
 				raise Exception("It's canceled")
 
 			elif re.search('^index\\((?:[0-9 ]+,?)*[0-9]\\)$', _input):
 
-				print (re.sub('index|\(|\)| +','',_input).split())
 
 				return np.array(re.sub('index|\(|\)| +','',_input).split())
 
@@ -98,7 +97,7 @@ class search:
 
 
 
-	def index_searching(self,food,lst_index=[],**kwargs):
+	def index_searching(self,food,index_list=[],**kwargs):
 
 
 		fil_re = "UPC[^0-9a-zA-Z]+[0-9]+"
@@ -115,7 +114,7 @@ class search:
 
 
 		data = data[sorting_result(food,data)]
-		qwe = [i for i,j in zip(data,range(len(data))) if  j == lst_index[0] ]
+		qwe = [i for i,j in zip(data,range(len(data))) if  j == index_list[0] ]
 		
 		return qwe
 
@@ -129,24 +128,33 @@ class NutritionDataLibrary(search):
 	api_key = mykey2
 	nd_url = 'https://api.nal.usda.gov/ndb/V2/reports?format=json&type=b'
 	mode = 'm'
-	oraora = []
-	_exact_word = 0
+	foods_missing_list = []
 	ndbno = []
+	ndf = []
+	foods_spreadsheet = []
+	indexS = []
+
+	diet_min = pd.read_csv('diet_minimums.csv')
+	diet_max = pd.read_csv('diet_maximums.csv')
 
 	def _helper1(x):
 		return x.replace("'", "").replace('"', "").replace(",", "").replace("&", "").replace(" ", "").replace("-","").lower()
 
 
 	def nutrition_dataframe(self, foods = None, **kwargs  ):
-		print(self.mode)
+
 		if 'mode' in kwargs:
 
 			self.mode = kwargs['mode']
-			print(self.mode)
+
 
 
 		if self.mode == 'ndbno':
-			df = pd.DataFrame(self._retrieving_nutrition_data_ndbno( foods, **{'ndbno':kwargs['ndbno'] }),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
+
+			if 'ndbno' in kwargs:
+				self.ndbno = kwargs['ndbno']
+
+			df = pd.DataFrame(self._retrieving_nutrition_data_ndbno(foods, **{'ndbno': self.ndbno.copy()} ),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
 			
 			df.columns  = df.columns.droplevel(level=0)
 
@@ -154,10 +162,11 @@ class NutritionDataLibrary(search):
 		else:
 			df = pd.DataFrame(self._retrieving_nutrition_data( foods,  **kwargs),columns = ['Food Name','Nutrients','Nutritional value'],dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
 			df.columns  = df.columns.droplevel(level=0)
-			print ( "[" + ", ".join(self.oraora) + ']  do/does not exist'  if len(self.oraora) != 0 else '')
+			print ( "[" + ", ".join(self.foods_missing_list) + ']  do/does not exist'  if len(self.foods_missing_list) != 0 else '')
 
 
 
+		self.ndf = df
 		return df
 
 
@@ -195,9 +204,9 @@ class NutritionDataLibrary(search):
 
 					
 
-			if 'lst_index' in kwargs:
+			if 'index_list' in kwargs:
 				
-				kwargs.update({ 'lst_index' :kwargs['lst_index'][1:] })
+				kwargs.update({ 'index_list' :kwargs['index_list'][1:] })
 
 
 			
@@ -207,11 +216,11 @@ class NutritionDataLibrary(search):
 
 		except KeyError:
 
-			self.oraora += [foods[0]]
+			self.foods_missing_list += [foods[0]]
 			return self._retrieving_nutrition_data(self,foods[1:] ,**kwargs)
 
 
-	def _retrieving_nutrition_data_ndbno(self,foods,ndbno=None,**kwargs):
+	def _retrieving_nutrition_data_ndbno(self,foods, ndbno = [] , **kwargs):
 
 		def recursive_helper(foods_nd_lst):
 
@@ -222,23 +231,22 @@ class NutritionDataLibrary(search):
 			return [ [foods[0],i['name'] , i['value']] for i in  foods_nd_lst[0]['food']['nutrients']]  + recursive_helper(foods_nd_lst[1:])
 
 
-		if ndbno == None:
-			ndbno = self.ndbno.copy()
+		try:
 
-		if len(foods) == 0:
-			return []
+			if len(foods) == 0:
+				return []
 
-		data1 = requests.get(self.nd_url , params = (('api_key', self.api_key), ('ndbno',ndbno[0])) ).json()
-
+			data1 = requests.get(self.nd_url , params = (('api_key', self.api_key), ('ndbno',ndbno[0])) ).json()
 
 
-		return recursive_helper(data1['foods']) + self._retrieving_nutrition_data_ndbno(foods[1:],ndbno[1:])
+
+			return recursive_helper(data1['foods']) + self._retrieving_nutrition_data_ndbno(foods[1:],ndbno[1:])
+
+		except IndexError:
+			raise IndexError("ndbno/foods list index out of range")
 
 
 class FoodLibrary(NutritionDataLibrary):
-
-
-
 
 	def __init__(self, foods = None, **kwargs):
 
@@ -246,20 +254,16 @@ class FoodLibrary(NutritionDataLibrary):
 			self.i = kwargs[i]
 
 		self.foods = foods
-		self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'
 
-	def change_foods_spreadsheet(spreadsheet_local_url = None):
-
-		self.foods_spreadsheet = spreadsheet_local_url if spreadsheet_local_url != None else  self.foods_spreadsheet
-
-		print (self.foods_spreadsheet)
-
-	def processing_kwargs(**kwargs):
-		for i in kwargs:
-			self.i = kwargs[i]
+		if 'proj2' in kwargs and kwargs['proj2'] == True:
+			self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'
 
 
-	def min_cost(self, gender="all", age_range="19-30":
+	def min_cost(self, gender="all", age_range="19-30",**kwargs):
+
+		if len(self.ndf) == 0 or len(self.foods_spreadsheet) == 0:
+			raise Exception("Please get a nutrition dataframe/spreadsheet for food first." )
+
 		group = "F 19-30"
 		group2 = 'M 19-30'
 		diet_min = pd.read_csv('diet_minimums.csv')
@@ -273,7 +277,6 @@ class FoodLibrary(NutritionDataLibrary):
 		bmax = tmax1 + tmax2
 		bmax = bmax / 2
 
-		print(bmin)
 
 		def test1(ndf):
 
@@ -287,20 +290,18 @@ class FoodLibrary(NutritionDataLibrary):
 
 			return ndf
 
+
+		D = self.ndf
 		muda1 = pd.read_csv(self.foods_spreadsheet)
-		muda2 = test1(muda1)
-		df = muda2
-		print (df[['NDB Quantity','NDB Price']])
-
-
-		D = self.nutrition_dataframe( list(df['Food']) ,mode='index',lst_index = [ int(re.findall('[0-9]+',i)[0]) for i in df['NDB']])
-
+		df = test1(muda1)
+		del muda1
+		
 
 		df.dropna(how='any') 
-		Prices = muda2.groupby('Food')['NDB Price'].min()
+		Prices = df.groupby('Food')['NDB Price'].min()
 
 
-		#print (Prices)
+
 		tol = 1e-6 # Numbers in solution smaller than this (in absolute value) treated as zeros
 
 		c = Prices.apply(lambda x:x.magnitude).dropna()
@@ -320,14 +321,9 @@ class FoodLibrary(NutritionDataLibrary):
 		b = pd.concat([-bmin,bmax]) # Note sign change for min constraints
 
 
-		# Now solve problem!
+
 		result = lp(c, A, b, method='interior-point',options = {"presolve":False,'maxiter':5000.0})
-		#result = lp(c, A_ub= -A, b_ub = -b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
-		#result.x = result.x.astype(np.int64)
-		print (len([int(i) for i in result.x]))
-		print ('==============================')
-		print (result.message)
-		print ('==============================')
+
 		# Put back into nice series
 		diet = pd.Series(result.x,index=c.index)
 
@@ -347,6 +343,22 @@ class FoodLibrary(NutritionDataLibrary):
 		excess = tab.diff(axis=1).iloc[:,1]
 
 		print(excess.loc[np.abs(excess) < tol].index.tolist())
+
+
+
+
+
+	def save_nutrition_dataframe(self, Path = "./", filename = 'ndf.csv'):
+		if len(self.ndf) != 0:
+			self.ndf.to_csv(Path + filename)
+			print ('successful!')
+
+	def open_nutrition_dataframe(self, Path = "./", filename = 'ndf.csv'):
+		self.ndf = pd.read_csv(Path + filename).set_index('Nutrients')
+
+		print ('successful!')
+
+
 
 
 class cache_ndb:
