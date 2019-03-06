@@ -152,7 +152,7 @@ class NutritionDataLibrary(search):
 
 
 		if self.mode == 'ndbno':
-			df = pd.DataFrame(self._retrieving_nutrition_data(self, foods, **kwargs),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
+			df = pd.DataFrame(self._retrieving_nutrition_data_ndbno( foods, **{'ndbno':kwargs['ndbno'] }),columns = ['Food Name','Nutrients','Nutritional value'], dtype = float).set_index(['Nutrients' ]).pivot(columns = 'Food Name')
 			
 			df.columns  = df.columns.droplevel(level=0)
 
@@ -254,7 +254,7 @@ class FoodLibrary(NutritionDataLibrary):
 			self.i = kwargs[i]
 
 		self.foods = foods
-		self.foods_spreadsheet = 'p2s.csv'
+		self.foods_spreadsheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'
 
 	def change_foods_spreadsheet(spreadsheet_local_url = None):
 
