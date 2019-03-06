@@ -9,13 +9,7 @@ import os
 import ndb
 from  scipy.optimize import linprog as lp
 
-mode = 'm'
 
-def foods_spreadsheet(local = None, spreadsheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQVh0_LyaOHQdxv_iYMqJGgLVZ9qAkH0FTJBiltXTSB86KeanGtIpeghO4S09sSPyAtqlh_mHXJAV9K/pub?gid=410630770&single=true&output=csv'):
-
-
-	return pd.read_csv(spreadsheet_url)
-	
 
 
 class search:
@@ -241,8 +235,6 @@ class NutritionDataLibrary(search):
 		return recursive_helper(data1['foods']) + self._retrieving_nutrition_data_ndbno(foods[1:],ndbno[1:])
 
 
-
-
 class FoodLibrary(NutritionDataLibrary):
 
 
@@ -267,12 +259,22 @@ class FoodLibrary(NutritionDataLibrary):
 			self.i = kwargs[i]
 
 
-	def min_cost(self):
+	def min_cost(self, gender="all", age_range="19-30":
 		group = "F 19-30"
+		group2 = 'M 19-30'
 		diet_min = pd.read_csv('diet_minimums.csv')
 		diet_max = pd.read_csv('diet_maximums.csv')
-		bmin = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group]
-		bmax = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group]
+		tmin1 = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group]
+		tmax1 = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group]
+		tmin2 = pd.read_csv('./diet_minimums.csv').set_index('Nutrition')[group2]
+		tmax2 = pd.read_csv('./diet_maximums.csv').set_index('Nutrition')[group2]
+		bmin = tmin1 + tmin2
+		bmin = bmin / 2
+		bmax = tmax1 + tmax2
+		bmax = bmax / 2
+
+		print(bmin)
+
 		def test1(ndf):
 
 			ndf['Quantity'] = [float(i)for i in ndf['Quantity']]
@@ -285,7 +287,7 @@ class FoodLibrary(NutritionDataLibrary):
 
 			return ndf
 
-		muda1 = pd.read_csv(self.foods_spreadsheet).iloc[:20,:]
+		muda1 = pd.read_csv(self.foods_spreadsheet)
 		muda2 = test1(muda1)
 		df = muda2
 		print (df[['NDB Quantity','NDB Price']])
@@ -319,7 +321,7 @@ class FoodLibrary(NutritionDataLibrary):
 
 
 		# Now solve problem!
-		result = lp(c, A, b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
+		result = lp(c, A, b, method='interior-point',options = {"presolve":False,'maxiter':5000.0})
 		#result = lp(c, A_ub= -A, b_ub = -b, method='simplex',options = {"presolve":False,'maxiter':5000.0})
 		#result.x = result.x.astype(np.int64)
 		print (len([int(i) for i in result.x]))
